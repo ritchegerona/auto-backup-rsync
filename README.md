@@ -22,31 +22,146 @@ Automated, resumable Linux and macOS backups with rsync, systemd timers, and lau
 - `ssh` (for remote destinations only)
 - `shellcheck` (optional, for linting)
 
-## Quick Start
+## Installation
+
+### Prerequisites
+
+| Dependency | Linux | macOS | Notes |
+|------------|-------|-------|-------|
+| `rsync` | `sudo apt install rsync` or `sudo dnf install rsync` | Ships with macOS (openrsync). For full support: `brew install rsync` | GNU rsync enables `--append-verify` for verified resume |
+| `bash` 3.2+ | Ships | Ships | Used as the shell for all scripts |
+| `ssh` | Ships | Ships | Required for remote destinations only |
+| `shellcheck` | `sudo apt install shellcheck` | `brew install shellcheck` | Optional, for linting |
+
+### Option 1: Install script (recommended)
+
+The installer handles binaries, config dirs, and scheduler registration on both Linux and macOS.
 
 ```bash
-# Install (system-wide or per-user)
+git clone https://github.com/ritchegerona/auto-backup-rsync.git
+cd auto-backup-rsync
+
+# System-wide install (requires root on Linux for systemd)
+sudo ./install/install.sh
+
+# Or per-user install (no root needed)
 ./install/install.sh
 
-# Or manual setup:
-mkdir -p /etc/auto-backup/jobs.d
-cp etc/backup.conf /etc/auto-backup/
-cp etc/jobs.d/*.conf /etc/auto-backup/jobs.d/
+# Custom prefix (e.g. Homebrew on Apple Silicon)
+./install/install.sh --prefix /opt/homebrew
 
-# Scaffold config and runtime dirs (per-user)
-auto-backup init
+# Skip scheduler setup (manual cron/systemd later)
+./install/install.sh --no-scheduler
+
+# Preview without changes
+./install/install.sh --dry-run
+```
+
+**What the installer does:**
+- Copies `auto-backup` and `backup-lib.sh` to `$PREFIX/bin/` (default: `/usr/local/bin`)
+- Creates config at `/etc/auto-backup/` (root) or `~/.config/auto-backup/` (user)
+- Copies sample job configs to `jobs.d/` (never overwrites existing)
+- Creates runtime dirs at `/var/log/auto-backup/` or `~/Library/Logs/auto-backup/`
+- Registers scheduler: systemd timers (Linux root), launchd agents (macOS), or prints cron hint
+
+### Option 2: Manual install
+
+```bash
+git clone https://github.com/ritchegerona/auto-backup-rsync.git
+cd auto-backup-rsync
+
+# Copy binaries
+sudo install -m 755 bin/backup.sh /usr/local/bin/auto-backup
+sudo install -m 755 bin/backup-lib.sh /usr/local/bin/backup-lib.sh
+
+# Create config structure
+sudo mkdir -p /etc/auto-backup/jobs.d
+sudo cp etc/backup.conf /etc/auto-backup/
+sudo cp etc/jobs.d/*.conf /etc/auto-backup/jobs.d/
+
+# Create runtime dirs
+sudo mkdir -p /var/log/auto-backup/{locks,state}
 
 # Edit a job
-vim /etc/auto-backup/jobs.d/myjob.conf
+sudo vim /etc/auto-backup/jobs.d/myjob.conf
+```
 
-# Validate
+### Option 3: Per-user (no root)
+
+```bash
+git clone https://github.com/ritchegerona/auto-backup-rsync.git
+cd auto-backup-rsync
+
+# Create dirs
+mkdir -p ~/.config/auto-backup/jobs.d
+mkdir -p ~/bin
+
+# Copy files
+cp bin/backup.sh ~/bin/auto-backup
+cp bin/backup-lib.sh ~/bin/backup-lib.sh
+cp etc/backup.conf ~/.config/auto-backup/
+cp etc/jobs.d/*.conf ~/.config/auto-backup/jobs.d/
+
+# Add to PATH (if not already)
+echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc   # or ~/.bashrc
+source ~/.zshrc
+
+# Scaffold runtime dirs
+auto-backup init
+```
+
+### Post-installation verification
+
+```bash
+# Confirm installation
+auto-backup version
+
+# List available jobs
+auto-backup list
+
+# Validate a job (tests sources, destination, SSH connectivity)
 auto-backup check myjob
 
-# Run
+# Dry-run (simulates backup without changes)
+auto-backup run myjob --dry-run
+
+# First real run
 auto-backup run myjob
 
-# Dry-run
-auto-backup run myjob --dry-run
+# Check status
+auto-backup status myjob
+
+# View logs
+tail -f /var/log/auto-backup/auto-backup.log
+```
+
+### Set up scheduling
+
+```bash
+# Linux (systemd) — enable timer for a job
+sudo systemctl enable --now auto-backup@myjob.timer
+systemctl list-timers | grep auto-backup
+
+# macOS (launchd) — loaded automatically by install.sh
+# Verify:
+launchctl list | grep auto-backup
+
+# Manual cron entry (both platforms)
+crontab -e
+# Add: 0 3 * * * /usr/local/bin/auto-backup run all
+```
+
+### Uninstall
+
+```bash
+# Remove binaries, keep config and logs
+sudo ./install/uninstall.sh
+
+# Remove everything (binaries, config, logs, scheduled entries)
+sudo ./install/uninstall.sh --purge
+
+# Preview without changes
+./install/uninstall.sh --dry-run
 ```
 
 ## Configuration
@@ -199,14 +314,6 @@ ON_FAILURE=(
   "curl -fsS -m 10 -H 'Title: backup failed' -d 'job %j failed at $(date)' ntfy.sh/YOUR-TOPIC"
   "mail -s 'auto-backup failed' root@localhost <<< 'Job failed'"
 )
-```
-
-## Uninstall
-
-```bash
-./install/uninstall.sh           # remove binaries, keep config
-./install/uninstall.sh --purge   # remove everything
-./install/uninstall.sh --dry-run # preview actions
 ```
 
 ## Troubleshooting
