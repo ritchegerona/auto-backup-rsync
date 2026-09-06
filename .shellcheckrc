@@ -1,0 +1,5 @@
+external-sources=true
+source-path=SCRIPTDIR
+enable=all
+# Config variables are conventionally sourced from /etc/auto-backup at runtime.
+disable=SC2034,SC2154,SC1091

@@ -1,0 +1,14 @@
+# auto-backup job service. Usage: systemctl start auto-backup@<JOB>
+[Unit]
+Description=auto-backup job %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/auto-backup run %i
+Nice=19
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

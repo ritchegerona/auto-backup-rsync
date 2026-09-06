@@ -1,0 +1,11 @@
+# auto-backup job timer. Usage: systemctl enable --now auto-backup@<JOB>.timer
+[Unit]
+Description=Schedule auto-backup job %i
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=3600
+Persistent=true
+
+[Install]
+WantedBy=timers.target
