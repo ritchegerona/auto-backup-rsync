@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.png" width="480" alt="auto-backup rsync logo"></p>
+
 # auto-backup
 
 Automated, resumable Linux and macOS backups with rsync, systemd timers, and launchd agents.
